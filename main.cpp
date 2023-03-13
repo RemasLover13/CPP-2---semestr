@@ -7,84 +7,75 @@
 
 using namespace std;
 
-class VersionException : public exception {
-public:
+struct VersionException :  std::exception {
 
 
-    VersionException(const char* msg): msg(msg) {};
-    int getVersion() {
-        return version;
+    const char *what() const throw() {
+        return "Version control exception!";
     }
 
-private:
-    std::string msg;
-    int version;
 };
 
-class DataException : public exception {
-public:
-    DataException(exception msg) : exception(msg) {
-
+struct DataException :  std::exception {
+    const char *what() const throw() {
+        return "Data Exception!";
     }
-
-    DataException(const char* msg): msg(msg) {};
-    string getData() {
-        return data;
-    }
-
-private:
-    string data;
-    std::string msg;
 };
 
-class SizeException : public exception {
-public:
-    SizeException(exception msg) : exception(msg) {
-
+struct SizeException : std::exception {
+    const char *what() const throw() {
+        return "Size exception!";
     }
-    SizeException(const char* msg): msg(msg) {};
-
-    int getSize() {
-        return size;
-    }
-
-private:
-    int size;
-    std::string msg;
 };
 
 struct Blob {
-    int version;
+    short version;
     int size;
-    string data;
+    char data[12];
 
     Blob() {
-
+        version = 0;
+        size = 0;
     }
 
-    Blob(int version, int size, string data) {
-        this->version = version;
-        this->size = size;
-        this->data = data;
+    void Print() {
+        cout << version << size << data <<  endl;
     }
+
 };
 
 
 void do_fs(const std::string &filename) {
+    // открываем файл для чтения
     std::ifstream reader(filename, std::ios::in | std::ios::binary);
+
     if (reader.is_open()) {
+        Blob blob;
         // read bytes from file to buffer
         std::vector<char> bytes;
-        int data_sz = 16;
+        int data_sz = 18;
         bytes.resize(data_sz);
         reader.read(reinterpret_cast<char *>(bytes.data()), data_sz);
+        int version = 0;
+        for (int i = 0; i < 1; i++) {
+            version += (int)bytes[i];
+        }
+        if (version >= 1 && version <= 7) {
+            blob.version = (short)version;
+        } else {
+            throw VersionException();
+        }
 
         // compare text data
         const char* text_data = "Hello, World";
         if (!std::memcmp(bytes.data(), text_data, 12)) {
             std::cout << "Text data equal\n";
+            for (int i = 0; i < 12; i++) {
+                blob.data[i] = text_data[i];
+            }
+            cout << blob.data << endl;
         } else {
-            throw DataException("Text data NOT equal");
+            throw DataException();
         }
 
         // compare int data
@@ -95,22 +86,25 @@ void do_fs(const std::string &filename) {
             std::uint32_t big_num;
             std::memcpy(&big_num, bytes.data()+12, 4);
             std::cerr << "LIT_NUM " << big_num << '\n';
+            blob.size = num;
         } else {
             std::uint32_t big_num;
             std::memcpy(&big_num, bytes.data()+12, 4);
             std::cerr << "BIG_NUM " << big_num << '\n';
-            throw DataException("Int data NOT equal");
+            throw SizeException();
         }
 
+        blob.Print();
+
     } else {
-        throw VersionException("invalid version!");
+        throw std::exception();
     }
 }
 
 
 int main() {
     try {
-        do_fs("bin_data.bin");
+        do_fs("/home/krmakov/homework_cpp/homework_3/bin_data.bin");
     } catch (const DataException& ex) {
         std::cerr << ex.what() << '\n';
     } catch (const VersionException& ex) {
@@ -118,6 +112,8 @@ int main() {
     } catch (const SizeException& ex) {
         std::cerr << ex.what() << '\n';
     }
+
+
 
     return 0;
 }
